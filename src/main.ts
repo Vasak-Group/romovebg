@@ -8,6 +8,7 @@ import {
   faCloudUploadAlt,
   faSun,
   faMoon,
+  faCircleHalfStroke
 } from "@fortawesome/free-solid-svg-icons";
 
 import "./style.css";
@@ -21,7 +22,8 @@ library.add(
   faCloudDownloadAlt,
   faCloudUploadAlt,
   faSun,
-  faMoon
+  faMoon,
+  faCircleHalfStroke
 );
 
 app.component("font-awesome-icon", FontAwesomeIcon);
