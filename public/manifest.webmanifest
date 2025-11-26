@@ -1,0 +1,16 @@
+{
+	"name": "Remove Background - Vasak Group",
+	"short_name": "RemoveBG",
+	"start_url": "/",
+	"display": "standalone",
+	"background_color": "#201e33",
+	"theme_color": "#201e33",
+	"description": "Elimina el fondo de imágenes en el cliente (privacidad) — herramienta rápida y segura.",
+	"icons": [
+		{
+			"src": "/favicon.ico",
+			"sizes": "any",
+			"type": "image/x-icon"
+		}
+	]
+}

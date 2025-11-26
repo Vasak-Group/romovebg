@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Replace https://yourdomain.com with your real site URL if deployed
+Sitemap: https://removebg.vasak.net.ar/sitemap.xml
