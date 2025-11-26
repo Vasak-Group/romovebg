@@ -1,12 +1,24 @@
-@import url('https://fonts.googleapis.com/css2?family=Work+Sans:ital,wght@0,100..900;1,100..900&display=swap');
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import url('https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap');
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+	--color-primary: #f6bb31;
+	--color-secondary: #f46619;
+}
 
 body {
-  @apply text-white font-sans transition-all duration-300;
-  background: #191135;
-  font-family: "Work Sans", serif;
-  font-optical-sizing: auto;
-  font-style: normal;
+	@apply bg-slate-100 text-slate-950 dark:bg-slate-950 dark:text-slate-50 transition-all duration-300;
+	font-family: 'Nunito', sans-serif;
+	font-optical-sizing: auto;
+	font-style: normal;
+}
+
+.vsk-gradient {
+	@apply bg-gradient-to-bl from-primary to-secondary;
+}
+
+.vsk-text-gradient {
+	@apply text-transparent bg-clip-text bg-gradient-to-bl from-primary to-secondary;
 }

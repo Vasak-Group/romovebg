@@ -1,29 +1,31 @@
 {
-  "name": "remove-bg",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "dev:bun": "bunx --bun vite",
-    "build": "vue-tsc -b && vite build",
-    "build:bun": "bunx --bun vue-tsc -b && bunx --bun vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "@fortawesome/fontawesome-svg-core": "^6.7.2",
-    "@fortawesome/free-solid-svg-icons": "^6.7.2",
-    "@fortawesome/vue-fontawesome": "^3.0.8",
-    "@imgly/background-removal": "^1.5.7",
-    "vue": "^3.5.13"
-  },
-  "devDependencies": {
-    "@vitejs/plugin-vue": "^5.2.1",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.49",
-    "tailwindcss": "^3.4.17",
-    "typescript": "~5.6.2",
-    "vite": "^6.0.4",
-    "vue-tsc": "^2.1.10"
-  }
+	"name": "remove-bg",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"dev:bun": "bunx --bun vite",
+		"build": "vue-tsc -b && vite build",
+		"build:bun": "bunx --bun vue-tsc -b && bunx --bun vite build",
+		"preview": "vite preview"
+	},
+	"dependencies": {
+		"@fortawesome/fontawesome-svg-core": "^6.7.2",
+		"@fortawesome/free-solid-svg-icons": "^6.7.2",
+		"@fortawesome/vue-fontawesome": "^3.1.2",
+		"@imgly/background-removal": "^1.7.0",
+		"vue": "^3.5.25"
+	},
+	"devDependencies": {
+		"@tailwindcss/postcss": "^4.1.17",
+		"@tailwindcss/vite": "^4.1.17",
+		"@vitejs/plugin-vue": "^5.2.4",
+		"autoprefixer": "^10.4.22",
+		"postcss": "^8.5.6",
+		"tailwindcss": "^4.1.17",
+		"typescript": "~5.6.3",
+		"vite": "^6.4.1",
+		"vue-tsc": "^2.2.12"
+	}
 }
