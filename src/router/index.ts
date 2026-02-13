@@ -7,6 +7,11 @@ const router = createRouter({
       path: "/",
       name: "home",
       component: () => import("../pages/HomePage.vue")
+    },
+    {
+      path: "/compress",
+      name: "compress",
+      component: () => import("../pages/CompressPage.vue")
     }
   ]
 });
