@@ -13,6 +13,7 @@ import {
 
 import "./style.css";
 import App from "./App.vue";
+import router from "./router";
 
 const app = createApp(App);
 
@@ -27,5 +28,7 @@ library.add(
 );
 
 app.component("font-awesome-icon", FontAwesomeIcon);
+
+app.use(router);
 
 app.mount("#app");
