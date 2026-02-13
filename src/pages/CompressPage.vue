@@ -201,7 +201,7 @@ const getItemDelta = (item: ConversionItem) => {
 
 <template>
 	<section class="min-h-screen px-6 py-12 md:py-16">
-		<div class="mx-auto w-full max-w-4xl">
+		<div class="px-6 md:px-20 w-full">
 			<div class="flex flex-col gap-4">
 				<h1 class="font-display text-3xl md:text-4xl font-bold text-primary m-0">
 					Comprimir imagenes a AVIF
