@@ -40,7 +40,15 @@ const chooseFiles = () => {
           Cargar imagen
         </div>
       </button>
-      <input id="imageUpload" ref="file" type="file" hidden @change="addImage($event)" />
+      <input
+        id="imageUpload"
+        ref="file"
+        type="file"
+        accept="image/*"
+        multiple
+        hidden
+        @change="addImage($event)"
+      />
       <p class="m-0 font-bold text-xl">O arrastrala y sueltala aquí</p>
     </div>
   </div>
