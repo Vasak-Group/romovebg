@@ -5,6 +5,10 @@ import tailwindcss from '@tailwindcss/vite';
 // https://vite.dev/config/
 export default defineConfig({
 	plugins: [vue(), tailwindcss()],
+	optimizeDeps: {
+		exclude: ["@jsquash/avif"],
+	},
+	assetsInclude: ["**/*.wasm"],
 	server: {
 		headers: {
 			'Cross-Origin-Opener-Policy': 'same-origin',
