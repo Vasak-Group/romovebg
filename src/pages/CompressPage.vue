@@ -240,7 +240,7 @@ const getItemDelta = (item: ConversionItem) => {
 				<div
 					v-for="item in items"
 					:key="item.id"
-					class="rounded-xl p-4"
+					class="rounded-xl p-4 bg-slate-100 dark:bg-slate-900"
 				>
 					<div class="flex items-start justify-between gap-3">
 						<div>
@@ -251,15 +251,16 @@ const getItemDelta = (item: ConversionItem) => {
 							type="button"
 							class="text-xs text-gray-500 hover:text-red-500"
 							@click="removeItem(item.id)"
+							aria-label="Quitar"
 						>
-							Quitar
+							<font-awesome-icon icon="fas fa-xmark" />
 						</button>
 					</div>
 
 					<div class="mt-3 grid gap-4 md:grid-cols-2">
 						<div>
 							<p class="text-xs font-semibold">Original</p>
-							<div class="mt-2 aspect-video overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
+							<div class="mt-2 aspect-video overflow-hidden rounded-lg bg-slate-200 dark:bg-slate-800">
 								<img
 									:src="item.originalUrl"
 									class="h-full w-full object-contain"
