@@ -12,6 +12,11 @@ const router = createRouter({
       path: "/compress",
       name: "compress",
       component: () => import("../pages/CompressPage.vue")
+    },
+    {
+      path: "/removebg",
+      name: "removebg",
+      component: () => import("../pages/RemoveBgPage.vue")
     }
   ]
 });

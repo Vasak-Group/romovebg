@@ -1,141 +1,45 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, ref } from "vue";
 import { encode as encodeAvif } from "@jsquash/avif";
 import FileDrop from "../components/FileDrop.vue";
-
-type ItemStatus = "queued" | "loading" | "done" | "error";
-
-type ConversionItem = {
-	id: string;
-	file: File;
-	status: ItemStatus;
-	errorMessage: string;
-	originalUrl: string;
-	avifUrl: string | null;
-	avifBlob: Blob | null;
-	avifFileName: string;
-};
+import ImageProcessCard from "../components/ImageProcessCard.vue";
 
 const files = ref<File[]>([]);
-const items = ref<ConversionItem[]>([]);
-const isProcessing = ref(false);
+const processedItems = ref<Map<string, Blob>>(new Map());
 
 const clearAll = () => {
-	items.value.forEach((item) => {
-		URL.revokeObjectURL(item.originalUrl);
-		if (item.avifUrl) {
-			URL.revokeObjectURL(item.avifUrl);
-		}
-	});
-	items.value = [];
 	files.value = [];
+	processedItems.value.clear();
 };
-
-onBeforeUnmount(() => {
-	items.value.forEach((item) => {
-		URL.revokeObjectURL(item.originalUrl);
-		if (item.avifUrl) {
-			URL.revokeObjectURL(item.avifUrl);
-		}
-	});
-});
-
-const totalOriginalSize = computed(() =>
-	formatBytes(items.value.reduce((sum, item) => sum + item.file.size, 0))
-);
-const totalAvifSize = computed(() =>
-	formatBytes(items.value.reduce((sum, item) => sum + (item.avifBlob?.size ?? 0), 0))
-);
-const totalDelta = computed(() => {
-	const original = items.value.reduce((sum, item) => sum + item.file.size, 0);
-	const avif = items.value.reduce((sum, item) => sum + (item.avifBlob?.size ?? 0), 0);
-	if (!items.value.length) {
-		return "-";
-	}
-	const diff = avif - original;
-	const sign = diff > 0 ? "+" : "";
-	return `${sign}${formatBytes(diff)}`;
-});
 
 const buildFileId = (file: File) => `${file.name}-${file.size}-${file.lastModified}`;
 
-const enqueueFiles = (incoming: File[]) => {
-	const existing = new Set(items.value.map((item) => item.id));
-	incoming.forEach((file) => {
-		const id = buildFileId(file);
-		if (existing.has(id)) {
-			return;
-		}
-		const item: ConversionItem = {
-			id,
-			file,
-			status: "queued",
-			errorMessage: "",
-			originalUrl: URL.createObjectURL(file),
-			avifUrl: null,
-			avifBlob: null,
-			avifFileName: file.name.replace(/\.[^/.]+$/, "") + ".avif"
-		};
-		items.value.push(item);
+const removeItem = (file: File) => {
+	const index = files.value.findIndex(
+		(f) => f.name === file.name && f.size === file.size && f.lastModified === file.lastModified
+	);
+	if (index !== -1) {
+		const id = buildFileId(files.value[index]);
+		files.value.splice(index, 1);
+		processedItems.value.delete(id);
+	}
+};
+
+const totalOriginalBytes = computed(() => files.value.reduce((sum, file) => sum + file.size, 0));
+const totalOutputBytes = computed(() => {
+	let total = 0;
+	processedItems.value.forEach((blob) => {
+		total += blob.size;
 	});
-};
-
-const processQueue = async () => {
-	if (isProcessing.value) {
-		return;
-	}
-	isProcessing.value = true;
-	try {
-		const queued = items.value.filter((item) => item.status === "queued");
-		if (!queued.length) {
-			return;
-		}
-		await Promise.all(queued.map((item) => processItem(item)));
-	} finally {
-		isProcessing.value = false;
-	}
-};
-
-const processItem = async (item: ConversionItem) => {
-	if (!item.file.type.startsWith("image/")) {
-		item.status = "error";
-		item.errorMessage = "El archivo seleccionado no es una imagen valida.";
-		return;
-	}
-	item.status = "loading";
-	try {
-		const blob = await convertToAvif(item.file);
-		item.avifBlob = blob;
-		item.avifUrl = URL.createObjectURL(blob);
-		item.status = "done";
-	} catch (error) {
-		item.status = "error";
-		item.errorMessage = error instanceof Error ? error.message : "No se pudo convertir.";
-	}
-};
-
-const removeItem = (id: string) => {
-	const index = items.value.findIndex((item) => item.id === id);
-	if (index === -1) {
-		return;
-	}
-	const item = items.value[index];
-	URL.revokeObjectURL(item.originalUrl);
-	if (item.avifUrl) {
-		URL.revokeObjectURL(item.avifUrl);
-	}
-	items.value.splice(index, 1);
-};
-
-watch(files, (value) => {
-	if (!value.length) {
-		return;
-	}
-	enqueueFiles(value);
-	void processQueue();
+	return total;
 });
+const processedCount = computed(() => processedItems.value.size);
 
 const convertToAvif = async (file: File): Promise<Blob> => {
+	if (!file.type.startsWith("image/")) {
+		throw new Error("El archivo seleccionado no es una imagen valida.");
+	}
+
 	const bitmap = await loadBitmap(file);
 	const canvas = document.createElement("canvas");
 	canvas.width = bitmap.width;
@@ -148,16 +52,14 @@ const convertToAvif = async (file: File): Promise<Blob> => {
 
 	const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
 	const avifBytes = await encodeAvif(imageData, {
-		quality: 90,
-		effort: 4,
-		chromaSubsampling: "4:4:4"
+		quality: 90
 	});
 
 	return new Blob([avifBytes], { type: "image/avif" });
 };
 
 const loadBitmap = async (file: File): Promise<ImageBitmap | HTMLImageElement> => {
-	if ("createImageBitmap" in window) {
+	if ("createImageBitmap" in globalThis) {
 		try {
 			return await createImageBitmap(file);
 		} catch {
@@ -176,139 +78,63 @@ const loadBitmap = async (file: File): Promise<ImageBitmap | HTMLImageElement> =
 		img.src = url;
 	});
 };
-
-const formatBytes = (value: number) => {
-	const units = ["B", "KB", "MB", "GB"];
-	let size = Math.abs(value);
-	let unitIndex = 0;
-	while (size >= 1024 && unitIndex < units.length - 1) {
-		size /= 1024;
-		unitIndex += 1;
-	}
-	const formatted = size < 10 ? size.toFixed(2) : size.toFixed(1);
-	return `${value < 0 ? "-" : ""}${formatted} ${units[unitIndex]}`;
-};
-
-const getItemDelta = (item: ConversionItem) => {
-	if (!item.avifBlob) {
-		return "-";
-	}
-	const diff = item.avifBlob.size - item.file.size;
-	const sign = diff > 0 ? "+" : "";
-	return `${sign}${formatBytes(diff)}`;
-};
 </script>
 
 <template>
-	<section class="min-h-screen px-6 py-12 md:py-16">
-		<div class="px-6 md:px-20 w-full">
-			<div class="flex flex-col gap-4">
-				<h1 class="font-display text-3xl md:text-4xl font-bold text-primary m-0">
-					Comprimir imagenes a AVIF
-				</h1>
-				<p class="text-base md:text-lg m-0">
-					Sube una o varias imagenes en cualquier formato y las convertimos a AVIF para reducir
-					el peso sin perder calidad visible.
-				</p>
-			</div>
-
-			<div class="mt-8 rounded-2xl bg-slate-200 dark:bg-slate-900 p-6 shadow-sm">
-				<div class="flex flex-col gap-4">
-					<label class="text-sm font-semibold">Selecciona imagenes</label>
-					<FileDrop v-model:allFiles="files" />
-
-					<div class="flex flex-wrap gap-3 text-sm text-gray-600">
-						<span>Archivos: {{ items.length }}</span>
-						<span>Peso total original: {{ totalOriginalSize }}</span>
-						<span>Peso total AVIF: {{ totalAvifSize }}</span>
-						<span>Diferencia total: {{ totalDelta }}</span>
-					</div>
-
-					<div class="flex flex-wrap gap-3">
-						<button
-							type="button"
-							class="text-sm font-semibold text-gray-600 hover:text-primary"
-							@click="clearAll"
-						>
-							Limpiar todo
-						</button>
-					</div>
-				</div>
-			</div>
-
-			<div v-if="items.length" class="mt-10 grid gap-6 md:grid-cols-2">
-				<div
-					v-for="item in items"
-					:key="item.id"
-					class="rounded-xl p-4 bg-slate-100 dark:bg-slate-900"
-				>
-					<div class="flex items-start justify-between gap-3">
-						<div>
-							<p class="text-sm font-semibold break-all">{{ item.file.name }}</p>
-							<p class="text-xs text-gray-500">{{ item.file.type || "image/*" }}</p>
-						</div>
-						<button
-							type="button"
-							class="text-xs text-gray-500 hover:text-red-500"
-							@click="removeItem(item.id)"
-							aria-label="Quitar"
-						>
-							<font-awesome-icon icon="fas fa-xmark" />
-						</button>
-					</div>
-
-					<div class="mt-3 grid gap-4 md:grid-cols-2">
-						<div>
-							<p class="text-xs font-semibold">Original</p>
-							<div class="mt-2 aspect-video overflow-hidden rounded-lg bg-slate-200 dark:bg-slate-800">
-								<img
-									:src="item.originalUrl"
-									class="h-full w-full object-contain"
-									alt="Imagen original"
-								/>
-							</div>
-						</div>
-						<div>
-							<p class="text-xs font-semibold">AVIF</p>
-							<div class="mt-2 aspect-video overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
-								<img
-									v-if="item.avifUrl"
-									:src="item.avifUrl"
-									class="h-full w-full object-contain"
-									alt="Imagen comprimida"
-								/>
-							</div>
-						</div>
-					</div>
-
-					<div class="mt-3 flex flex-col gap-1 text-xs text-gray-600">
-						<span>Peso original: {{ formatBytes(item.file.size) }}</span>
-						<span>Peso AVIF: {{ item.avifBlob ? formatBytes(item.avifBlob.size) : "-" }}</span>
-						<span>Diferencia: {{ getItemDelta(item) }}</span>
-					</div>
-
-					<div class="mt-3">
-						<div v-if="item.status === 'loading'" class="text-sm text-primary">
-							Convirtiendo...
-						</div>
-						<div v-if="item.status === 'error'" class="text-sm text-red-600">
-							{{ item.errorMessage }}
-						</div>
-						<div v-if="item.status === 'done'" class="flex flex-col gap-3">
-							<a
-								class="inline-flex items-center justify-center rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-white"
-								:href="item.avifUrl || undefined"
-								:download="item.avifFileName"
-							>
-								Descargar AVIF
-							</a>
-							<p class="text-xs text-gray-500 m-0">
-								Calidad configurada al maximo. El resultado puede variar segun el navegador.
+	<section class="min-h-screen">
+		<div class="flex flex-col items-center justify-center overflow-x-clip py-12">
+			<section class="py-4 md:py-8">
+				<div class="mx-auto w-full px-8 max-w-5xl relative">
+					<div class="flex flex-col lg:flex-row items-center lg:items-start justify-center md:gap-4 content-center">
+						<div class="flex flex-col justify-center content-center items-center gap-4 text-center">
+							<h1 class="font-display font-bold text-primary m-0 text-4xl md:text-5xl lg:text-6xl text-center">
+								Comprimir imagenes
+							</h1>
+							<p class="text-xl m-0 text-center">
+								100&nbsp;% automático y
+								<span class="text-secondary font-bold">gratis</span>
 							</p>
 						</div>
+
+						<div class="relative group flex flex-col gap-4 md:gap-8">
+							<FileDrop v-model:allFiles="files" />
+							<div class="max-w-md">
+								<p class="text-xs text-center sm:!text-left !mt-4">
+									Al subir una imagen o URL, aceptas nuestros
+									<a target="_blank" class="underline" draggable="false" href="/es/tos">Condiciones
+										del servicio</a>. Para saber más sobre cómo maneja tus datos personales
+									brenini.dev, echa un vistazo a nuestra
+									<a target="_blank" rel="noopener" class="underline" style="color: inherit" href="/es/privacy">Política
+										de privacidad</a>.
+								</p>
+							</div>
+							<svg width="184" height="192" viewBox="0 0 184 192" fill="none" xmlns="http://www.w3.org/2000/svg"
+								class="text-primary absolute hidden md:block -top-16 -right-[40%] xl:-right-1/2 transition ease-in-out transform-gpu">
+								<path
+									d="M182.648 183.128C178.597 187.405 171.028 191.799 163.237 191.977C157.571 192.103 152.323 190.012 148.058 185.927C139.232 177.468 138.372 158.735 137.621 142.22C137.204 133.157 136.747 122.877 134.696 119.768C131.836 115.376 124.509 108.471 107.735 111.458C94.4152 113.834 81.7884 115.329 73.6959 107.665C64.5031 98.9588 66.3544 85.5644 68.5325 76.244C69.271 73.0119 70.4408 69.8949 72.0105 66.9765C67.2371 63.1964 63.8062 58.7353 62.4015 54.3978C60.8072 49.4882 61.1485 43.5448 61.4696 37.8066C61.9457 29.5112 62.3974 21.6751 57.4255 18.3185C52.9599 15.3123 37.4838 14.4287 30.2947 16.7929C23.7769 18.9234 13.5899 18.9589 1.99423 6.93367C1.6401 6.5666 1.36158 6.13357 1.17454 5.65932C0.987495 5.18506 0.895589 4.67887 0.904109 4.16963C0.912629 3.66038 1.02138 3.15807 1.22417 2.69136C1.42696 2.22466 1.71981 1.80269 2.086 1.44957C2.45218 1.09646 2.88452 0.819116 3.35835 0.63335C3.83218 0.447587 4.33822 0.357049 4.84756 0.366916C5.3569 0.376784 5.85958 0.486848 6.32689 0.690842C6.7942 0.894836 7.21699 1.18879 7.57112 1.55585C12.4264 6.59173 19.8904 12.0448 27.8628 9.42376C35.8352 6.80273 54.2649 6.8425 61.7549 11.8939C70.3895 17.7206 69.7629 28.6339 69.2095 38.2642C68.9095 43.5287 68.6214 48.5014 69.7664 52.0262C70.775 55.1189 73.3834 58.1558 76.531 60.6768C76.9819 60.2006 77.4049 59.754 77.8356 59.3765C82.0627 55.4357 86.9774 53.4477 91.2962 53.9361C96.6192 54.5284 100.113 58.7801 100.195 64.7704C100.25 70.0573 97.3594 73.7039 92.4487 74.5175C88.6575 75.1291 83.6402 73.9231 78.5462 71.2419C77.4414 73.3904 76.607 75.6679 76.0619 78.0227C73.2511 90.0426 74.1576 97.4483 79.0031 102.037C84.4653 107.21 95.0526 105.831 106.352 103.814C122.037 101.019 134.401 105.177 141.174 115.524C144.395 120.438 144.815 129.89 145.362 141.875C146.018 156.197 146.832 174.017 153.401 180.345C156.233 183.027 159.368 184.313 163.024 184.23C168.933 184.098 174.615 180.307 176.996 177.793C177.702 177.048 178.675 176.614 179.703 176.588C180.73 176.561 181.727 176.944 182.474 177.651C183.221 178.359 183.657 179.333 183.687 180.361C183.716 181.388 183.336 182.384 182.63 183.129L182.648 183.128ZM83.3056 64.9216C86.4005 66.4052 89.3016 67.1611 91.1914 66.8526C91.9094 66.7359 92.4752 66.6434 92.4525 64.8379C92.4131 61.8384 91.0498 61.6861 90.4681 61.6233C88.7028 61.4381 85.9689 62.5013 83.2972 64.9304L83.3056 64.9216Z"
+									fill="currentColor"></path>
+							</svg>
+							<svg width="34" height="27" viewBox="0 0 34 27" fill="none" xmlns="http://www.w3.org/2000/svg"
+								class="text-secondary absolute hidden md:block -right-24 top-32 transition ease-in-out rotate-6 group-hover:rotate-[35deg] group-hover:-translate-x-4 transform-gpu">
+								<path
+									d="M33.8167 1.68928C33.68 1.41639 33.4726 1.1859 33.2164 1.0223C32.9602 0.858703 32.6649 0.768091 32.3618 0.760085L1.71198 0H1.67137C1.37184 0.00107942 1.07808 0.0829958 0.820576 0.237246C0.563072 0.391496 0.351224 0.612448 0.207062 0.877146C0.0629004 1.14184 -0.00833251 1.44064 0.000775816 1.74247C0.00988414 2.04431 0.098999 2.33817 0.258855 2.59355L15.055 26.2114C15.2027 26.4471 15.4059 26.6423 15.6464 26.7799C15.887 26.9175 16.1575 26.9931 16.4339 27H16.4745C16.7443 26.9999 17.01 26.9342 17.2492 26.8083C17.4884 26.6825 17.6938 26.5003 17.8482 26.2773L33.7019 3.42128C33.8743 3.16991 33.9761 2.87618 33.9963 2.57124C34.0165 2.2663 33.9544 1.96153 33.8167 1.68928Z"
+									fill="currentColor"></path>
+							</svg>
+						</div>
 					</div>
+					<svg width="98" height="132" viewBox="0 0 98 132" fill="none" xmlns="http://www.w3.org/2000/svg"
+						class="text-secondary absolute hidden md:block -left-12 xl:-left-24 -bottom-32 xl:-bottom-44 transition ease-in-out transform-gpu">
+						<path
+							d="M46.9684 132C46.3582 132 45.7557 132 45.1494 131.951C44.6766 131.926 44.2134 131.808 43.7861 131.603C43.3589 131.398 42.976 131.111 42.6593 130.758C42.3426 130.405 42.0982 129.993 41.9403 129.545C41.7824 129.098 41.7139 128.623 41.7388 128.149C41.7637 127.675 41.8815 127.21 42.0854 126.781C42.2893 126.353 42.5753 125.969 42.9272 125.651C43.2791 125.333 43.6899 125.088 44.1362 124.93C44.5825 124.771 45.0556 124.702 45.5283 124.727C59.2502 125.488 80.2707 113.551 88.494 95.2532C90.3887 91.0295 92.8253 83.1715 87.7777 78.0241C85.4623 75.6671 82.4724 74.3669 79.3953 73.7016C78.8117 74.5912 78.1978 75.458 77.546 76.3057C70.2663 85.7757 55.3659 99.5491 44.1982 98.6861C40.3329 98.3896 37.2785 96.4051 35.3686 92.9076C33.7959 90.0412 33.8528 86.6729 35.5278 83.4262C36.8428 80.8829 39.1126 78.3929 42.2807 76.0282C50.4888 69.8924 63.7825 65.2924 75.5111 65.95C79.9145 56.9515 80.4943 46.5046 76.269 41.2051C74.1355 38.5211 70.2057 34.8601 60.7584 34.0465C57.9495 33.8716 55.1304 33.9607 52.3381 34.3127C48.954 44.6038 40.4238 53.7999 32.5492 57.6548C25.6295 61.0421 19.7141 60.046 16.7317 54.9936C13.4121 49.3672 14.837 44.8052 16.6104 41.9654C21.4042 34.3089 34.9517 29.8381 46.4605 27.8993C46.8775 25.1558 46.5865 22.3509 45.6155 19.7523C43.6866 14.8102 39.3741 10.826 33.7846 8.82636C26.1677 6.10057 16.1709 6.92552 4.8781 11.2328C4.43594 11.401 3.96514 11.4803 3.49246 11.466C3.01978 11.4517 2.55454 11.3441 2.12329 11.1494C1.25236 10.7562 0.572784 10.032 0.234084 9.13617C-0.104616 8.24033 -0.0747715 7.24622 0.317165 6.3725C0.709101 5.49878 1.43098 4.81707 2.32397 4.47729C15.4206 -0.510484 26.8195 -1.33547 36.2062 2.02519C43.7549 4.72817 49.6286 10.2292 52.3192 17.1178C53.5254 20.2528 54.0299 23.6155 53.7971 26.9678C56.3162 26.7255 58.8507 26.6861 61.3761 26.85C70.5506 27.6408 77.2656 30.8607 81.9039 36.7039C87.5693 43.8358 87.6603 56.1151 82.8893 67.1666C86.6655 68.1971 90.111 70.1919 92.8898 72.9565C98.8621 79.0391 99.6276 88.0187 95.0385 98.2223C87.5883 114.893 66.7497 132 46.9684 132ZM70.8423 73.1922C69.8684 73.2568 68.9665 73.3519 68.1707 73.4583C60.4022 74.4848 52.1373 77.6934 46.6008 81.822C43.6298 84.0383 40.5641 87.3648 41.6744 89.4253C42.4096 90.7597 43.3266 91.3755 44.7514 91.4858C50.6972 91.961 62.3766 83.6885 70.8423 73.196V73.1922ZM44.0504 35.6889C34.8987 37.6619 25.622 41.2165 22.742 45.8165C21.9841 47.0482 21.3928 48.6639 22.9617 51.3213C24.163 53.359 27.5091 52.1044 29.4266 51.173C34.8722 48.5157 40.7611 42.4938 44.058 35.6927L44.0504 35.6889Z"
+							fill="currentColor"></path>
+					</svg>
 				</div>
+			</section>
+			<div class="flex flex-wrap gap-6 content-center justify-center">
+				<ImageProcessCard v-for="file in files" :key="`${file.name}-${file.size}-${file.lastModified}`" :file="file"
+					:output-file-name="`${file.name.replace(/\.[^/.]+$/, '')}.avif`" :process-function="convertToAvif"
+					@delete="removeItem(file)" @processed="(blob) => processedItems.set(buildFileId(file), blob)" />
 			</div>
 		</div>
-  </section>
+	</section>
 </template>

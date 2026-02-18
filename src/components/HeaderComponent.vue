@@ -12,7 +12,7 @@ import { RouterLink } from "vue-router";
             </RouterLink>
 
             <nav class="hidden md:flex items-center gap-6">
-                <RouterLink to="/" class="text-sm font-medium hover:text-primary transition-colors">
+                <RouterLink to="/removebg" class="text-sm font-medium hover:text-primary transition-colors">
                     Remover fondo
                 </RouterLink>
                 <RouterLink to="/compress" class="text-sm font-medium hover:text-primary transition-colors">
