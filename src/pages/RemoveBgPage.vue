@@ -20,6 +20,6 @@ const deleteFile = (file: File) => {
       <a target="_blank" rel="noopener" class="underline" style="color: inherit" href="/es/privacy">Política
         de privacidad</a>.
     </template>
-    <FileConvert v-for="file in files" :key="`${file.name}-${file.size}-${file.lastModified}`" :file="file" @delete-file="deleteFile(file)" />
+    <FileConvert v-for="file in files" :key="`${file.name}-${file.size}-${file.lastModified}`" :file="file" @delete="deleteFile(file)" />
   </ImageProcessLayout>
 </template>

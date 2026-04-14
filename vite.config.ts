@@ -6,7 +6,7 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
 	plugins: [vue(), tailwindcss()],
 	optimizeDeps: {
-		exclude: ["@jsquash/avif"],
+		exclude: ["@jsquash/avif", "@imgly/background-removal"],
 	},
 	assetsInclude: ["**/*.wasm"],
 	server: {
